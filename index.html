@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🍜EV-เป๋นแสง🚙</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: manipulation; height: 100dvh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .hidden { display: none !important; }
+        
+        .auth-container { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+        .auth-card { background: white; padding: 2rem; border-radius: 1.5rem; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+        .input-field { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; outline: none; margin-bottom: 1rem; }
+        .input-field:focus { border-color: #f97316; box-shadow: 0 0 0 2px rgba(249,115,22,0.2); }
+        .btn-login { width: 100%; background: #f97316; color: white; font-weight: bold; padding: 0.75rem; border-radius: 0.5rem; transition: 0.2s; }
+        .btn-login:active { transform: scale(0.98); background: #ea580c; }
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; }
+        .spinner-dark { border: 2px solid rgba(0,0,0,0.1); border-top-color: #f97316; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .app-container { display: flex; flex-direction: column; height: 100dvh; width: 100%; max-width: 500px; margin: 0 auto; background: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; background: #fff; border-bottom: 1px solid #e5e7eb; font-size: 0.8rem; z-index: 10; flex-shrink: 0; }
+        
+        .tap-half { 
+            flex: 1; 
+            position: relative; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 2vh; 
+            cursor: pointer; 
+            transition: background 0.1s; 
+            overflow: hidden; 
+            padding: 1rem;
+        }
+        
+        .zone-tdr { background-color: #111827; color: white; border-bottom: 4px solid #374151; }
+        .zone-tdr:active { background-color: #1f2937; }
+        .ring-tdr { border: 4px solid #4b5563; }
+        .zone-tdr:active .ring-tdr { transform: scale(0.95); border-color: #6b7280; }
+        
+        .zone-noodle { background-color: #fff7ed; color: #ea580c; }
+        .zone-noodle:active { background-color: #ffedd5; }
+        .ring-noodle { border: 4px solid #f97316; }
+        .zone-noodle:active .ring-noodle { transform: scale(0.95); background: white; }
+
+        .circle-wrapper { position: relative; width: 150px; height: 150px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+        .glow-ring { position: absolute; inset: 0; border-radius: 50%; transition: all 0.15s ease-out; }
+        .count-display { font-size: 5rem; font-weight: 900; line-height: 1; z-index: 2; pointer-events: none; position: relative; }
+        
+        .shop-title { font-size: 1.25rem; font-weight: bold; letter-spacing: 0.5px; z-index: 2; text-align: center; }
+        .shop-icon { font-size: 4rem; line-height: 1; display: flex; justify-content: center; opacity: 0.9; }
+        
+        .tap-hint { font-size: 0.75rem; font-weight: bold; opacity: 0.7; z-index: 2; pointer-events: none; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+
+        .sync-badge { position: absolute; top: 12px; right: 12px; font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; display: flex; align-items: center; gap: 4px; z-index: 10; }
+        .badge-waiting { background: #fef3c7; color: #d97706; }
+        .badge-syncing { background: #ffedd5; color: #ea580c; }
+        .badge-success { background: #d1fae5; color: #059669; }
+        .badge-error { background: #fee2e2; color: #dc2626; }
+        
+        .zone-tdr .badge-waiting { background: #4b5563; color: #fcd34d; }
+        .zone-tdr .badge-syncing { background: #374151; color: #60a5fa; }
+        .zone-tdr .badge-success { background: #064e3b; color: #34d399; }
+        .zone-tdr .badge-error { background: #7f1d1d; color: #f87171; }
+
+        /* Dashboard Modal Styles */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; display: flex; flex-direction: column; align-items: center; padding: 1rem; overflow-y: auto; }
+        .modal-content { width: 100%; max-width: 450px; background: #f3f4f6; border-radius: 1rem; display: flex; flex-direction: column; overflow: hidden; margin-top: 1rem; margin-bottom: 2rem; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: white; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 10; }
+        .dash-card-dark { background: #1f2937; color: white; padding: 1rem; border-radius: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .dash-card-light { background: #fff7ed; color: #1f2937; padding: 1rem; border-radius: 1rem; border: 1px solid #ffedd5; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .dash-table { width: 100%; text-align: left; font-size: 0.75rem; border-collapse: collapse; }
+        .dash-table th { padding: 0.5rem 0.25rem; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af; font-weight: bold; text-transform: uppercase; }
+        .dash-card-light .dash-table th { border-bottom: 1px solid #fdba74; color: #9a3412; }
+        .dash-table td { padding: 0.5rem 0.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-family: monospace; }
+        .dash-card-light .dash-table td { border-bottom: 1px solid #ffedd5; }
+        .shift-badge { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; font-family: sans-serif; }
+        .shift-day { background: rgba(252, 211, 77, 0.2); color: #f59e0b; }
+        .shift-night { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+        .dash-card-light .shift-day { background: #fef3c7; color: #d97706; }
+        .dash-card-light .shift-night { background: #e0e7ff; color: #4f46e5; }
+    </style>
+</head>
+<body>
+    <div id="authContainer" class="auth-container">
+        <div class="auth-card">
+            <div class="text-center mb-6">
+                <i class="ph-fill ph-shield-check text-5xl text-orange-500"></i>
+                <h2 class="text-2xl font-bold mt-2 text-gray-800">ระบบ รปภ.ส่วนกลาง</h2>
+                <p class="text-gray-500 text-sm">ล็อกอินเพื่อบันทึกยอดทั้ง 2 ร้าน</p>
+            </div>
+            <div>
+                <label class="text-sm text-gray-600 mb-1 block font-medium">Username (เบอร์โทร)</label>
+                <input type="text" id="loginUsername" class="input-field" placeholder="Ex. 0812345678" inputmode="numeric">
+                <label class="text-sm text-gray-600 mb-1 block font-medium mt-2">Password (รหัส 4 ตัว)</label>
+                <input type="password" id="loginPassword" class="input-field" placeholder="Ex. 1234" inputmode="numeric" maxlength="4">
+                <button onclick="handleLogin()" id="btnLogin" class="btn-login flex justify-center items-center gap-2 mt-4">
+                    <span>เข้าสู่ระบบ</span> <i id="loginSpinner" class="spinner hidden"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="appContainer" class="app-container hidden">
+        <div class="header shadow-sm">
+            <div class="flex flex-col">
+                <div class="font-bold text-gray-800 flex items-center gap-1"><i class="ph-fill ph-user-circle text-orange-500"></i> <span id="currentUserDisplay">User</span></div>
+                <div class="text-xs text-gray-500 mt-0.5">Slot: <span id="timeSlotBadge" class="font-mono font-bold text-gray-700">--:----:--</span></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="openDashboard()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 hover:bg-indigo-100 transition-colors shadow-sm">
+                    <i class="ph-bold ph-chart-bar text-sm"></i> สรุปยอด
+                </button>
+                <div class="text-right border-l pl-3 border-gray-200">
+                    <div class="text-sm font-mono font-bold text-gray-800" id="currentTime">--:--</div>
+                    <button onclick="handleLogout()" class="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100 mt-1 hover:bg-red-100 w-full"><i class="ph-bold ph-sign-out"></i> ออกระบบ</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tap-half zone-tdr" onclick="addCount(1)">
+            <div id="syncBadge1" class="sync-badge hidden"><i id="syncIcon1" class="ph-bold ph-check"></i> <span id="syncText1"></span></div>
+            <div class="shop-title">EV POWER ⚡️</div>
+            <div class="circle-wrapper">
+                <div class="glow-ring ring-tdr"></div>
+                <div class="count-display" id="countDisplay1">0</div>
+            </div>
+            <div class="tap-hint"><i class="ph-bold ph-hand-tap"></i> TAP TO ADD</div>
+        </div>
+
+        <div class="tap-half zone-noodle" onclick="addCount(2)">
+            <div id="syncBadge2" class="sync-badge hidden"><i id="syncIcon2" class="ph-bold ph-check"></i> <span id="syncText2"></span></div>
+            <div class="shop-icon text-orange-600">
+                <i class="ph-fill ph-bowl-food"></i>
+            </div>
+            <div class="circle-wrapper">
+                <div class="glow-ring ring-noodle"></div>
+                <div class="count-display" id="countDisplay2">0</div>
+            </div>
+            <div class="tap-hint"><i class="ph-bold ph-hand-tap"></i> TAP TO ADD</div>
+        </div>
+    </div>
+
+    <div id="dashModal" class="modal-overlay hidden">
+        <div class="modal-content shadow-2xl">
+            <div class="modal-header">
+                <div class="flex-1">
+                    <h2 class="font-black text-gray-800 text-sm sm:text-base flex items-center gap-1.5 tracking-wide">
+                        <i class="ph-bold ph-chart-pie-slice text-orange-500 text-lg"></i> EXECUTIVE DASHBOARD
+                    </h2>
+                    <div class="text-[10px] text-gray-500 mt-0.5">อัปเดตล่าสุด: <span id="dashSyncTime">--:--:--</span></div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <div class="bg-gradient-to-r from-orange-50 to-orange-100 text-orange-800 border border-orange-200 px-2 py-1 rounded-md text-[10px] sm:text-xs font-bold shadow-sm flex items-center gap-1">
+                        <i class="ph-fill ph-calendar-blank text-orange-500"></i> <span id="dateTextDash">--/--/----</span>
+                    </div>
+                    <button onclick="closeDashboard()" class="bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-red-500 p-1.5 rounded-full transition-colors flex-shrink-0">
+                        <i class="ph-bold ph-x text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-4 overflow-y-auto">
+                <button onclick="fetchDashboardData()" id="btnRefreshDash" class="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2.5 rounded-lg mb-4 flex justify-center items-center gap-2 shadow-sm hover:bg-gray-50 active:bg-gray-100">
+                    <i id="dashIcon" class="ph-bold ph-arrows-clockwise text-lg"></i> <span id="dashBtnText">โหลดข้อมูลล่าสุด</span>
+                </button>
+
+                <div class="dash-card-dark">
+                    <h3 class="text-center font-bold text-gray-300 text-xs tracking-widest mb-1">(EV POWER)</h3>
+                    <div class="text-center mb-3 border-b border-gray-700 pb-3">
+                        <div class="text-[10px] text-gray-400">ยอดรถสะสมวันนี้</div>
+                        <div class="text-4xl font-black flex items-center justify-center gap-2">
+                            <span id="totalTDR">0</span> <i class="ph-fill ph-car-profile text-xl text-gray-400"></i>
+                        </div>
+                    </div>
+                    <table class="dash-table">
+                        <thead><tr><th>ช่วงเวลา (SLOT)</th><th>กะ (SHIFT)</th><th class="text-right">รถ (CAR)</th></tr></thead>
+                        <tbody id="tbodyTDR"></tbody>
+                    </table>
+                </div>
+
+                <div class="dash-card-light">
+                    <h3 class="text-center font-bold text-orange-800 text-xs tracking-widest mb-1">ก๋วยเตี๋ยวเป๋นแก้ว</h3>
+                    <div class="text-center mb-3 border-b border-orange-200 pb-3">
+                        <div class="text-[10px] text-orange-600/70">ยอดลูกค้าสะสมวันนี้</div>
+                        <div class="text-4xl font-black text-orange-600 flex items-center justify-center gap-2">
+                            <span id="totalNoodle">0</span> <i class="ph-fill ph-users-three text-xl"></i>
+                        </div>
+                    </div>
+                    <table class="dash-table">
+                        <thead><tr><th>ช่วงเวลา (SLOT)</th><th>กะ (SHIFT)</th><th class="text-right">คน (PERSON)</th></tr></thead>
+                        <tbody id="tbodyNoodle"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyE6je7igmqVohJLosZIDykPcPfBT7jvTHqExfXahzO9eCGxH6KhKJ79aR5odaE579mnA/exec"; 
+
+        let currentUser = null;
+        const SYNC_DELAY = 3000;
+        let count1 = 0; let syncTimer1 = null;
+        let count2 = 0; let syncTimer2 = null;
+
+        // แยก Slots TDR (EV) แบบเต็ม 24 ชั่วโมง เริ่ม 07:00
+        const evSlots = [ 
+            { s: "07:00-08:00", sh: "Day" }, { s: "08:00-09:00", sh: "Day" }, { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, 
+            { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" }, { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, 
+            { s: "15:00-16:00", sh: "Day" }, { s: "16:00-17:00", sh: "Day" }, { s: "17:00-18:00", sh: "Day" }, { s: "18:00-19:00", sh: "Day" }, 
+            { s: "19:00-20:00", sh: "Night" }, { s: "20:00-21:00", sh: "Night" }, { s: "21:00-22:00", sh: "Night" }, { s: "22:00-23:00", sh: "Night" }, 
+            { s: "23:00-24:00", sh: "Night" }, { s: "24:00-01:00", sh: "Night" }, { s: "01:00-02:00", sh: "Night" }, { s: "02:00-03:00", sh: "Night" }, 
+            { s: "03:00-04:00", sh: "Night" }, { s: "04:00-05:00", sh: "Night" }, { s: "05:00-06:00", sh: "Night" }, { s: "06:00-07:00", sh: "Night" } 
+        ];
+
+        // แยก Slots Noodle เริ่ม 09:00 และเว้นช่วงที่ไม่เปิด
+        const noodleSlots = [
+            { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" },
+            { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, { s: "15:00-16:00", sh: "Day" },
+            { s: "18:00-19:00", sh: "Night" }, { s: "19:00-20:00", sh: "Night" }, { s: "20:00-21:00", sh: "Night" },
+            { s: "21:00-22:00", sh: "Night" }, { s: "22:00-23:00", sh: "Night" }, { s: "23:00-24:00", sh: "Night" }
+        ];
+
+        window.onload = function() {
+            checkLoginStatus();
+            updateClock();
+            setInterval(updateClock, 1000);
+        };
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const hour = now.getHours(); const nextHour = (hour + 1) % 24;
+            let slotStr = (hour === 23) ? "23:00-24:00" : (hour === 0 ? "24:00-01:00" : `${hour.toString().padStart(2, '0')}:00-${nextHour.toString().padStart(2, '0')}:00`);
+            document.getElementById('timeSlotBadge').textContent = slotStr;
+        }
+
+        function checkLoginStatus() {
+            const storedUser = localStorage.getItem('guard_user');
+            if (storedUser) {
+                currentUser = JSON.parse(storedUser);
+                showApp();
+            } else {
+                document.getElementById('authContainer').classList.remove('hidden');
+                document.getElementById('appContainer').classList.add('hidden');
+            }
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            if (!username || !password) { alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+
+            const btn = document.getElementById('btnLogin');
+            const spinner = document.getElementById('loginSpinner');
+            btn.disabled = true; spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'login', username, password })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    localStorage.setItem('guard_user', JSON.stringify(result.user));
+                    currentUser = result.user;
+                    showApp();
+                } else {
+                    alert("เข้าสู่ระบบไม่สำเร็จ: " + result.message);
+                }
+            } catch (e) { alert("Error: ตรวจสอบอินเทอร์เน็ตหรือ URL ของระบบ"); } 
+            finally { btn.disabled = false; spinner.classList.add('hidden'); }
+        }
+
+        function handleLogout() {
+            if(confirm("ยืนยันการออกจากระบบ?")) {
+                localStorage.removeItem('guard_user');
+                location.reload();
+            }
+        }
+
+        function showApp() {
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            document.getElementById('currentUserDisplay').textContent = currentUser.name;
+        }
+
+        function addCount(shopId) {
+            if (shopId === 1) { count1++; document.getElementById('countDisplay1').textContent = count1; scheduleAutoSync(1); }
+            else { count2++; document.getElementById('countDisplay2').textContent = count2; scheduleAutoSync(2); }
+            if (navigator.vibrate) navigator.vibrate(40);
+        }
+
+        function setBadge(shopId, type, text, iconClass) {
+            const badge = document.getElementById(`syncBadge${shopId}`);
+            const icon = document.getElementById(`syncIcon${shopId}`);
+            const span = document.getElementById(`syncText${shopId}`);
+            badge.className = `sync-badge badge-${type}`;
+            icon.className = iconClass;
+            span.textContent = text;
+            badge.classList.remove('hidden');
+        }
+
+        function hideBadge(shopId) { document.getElementById(`syncBadge${shopId}`).classList.add('hidden'); }
+
+        function scheduleAutoSync(shopId) {
+            setBadge(shopId, 'waiting', 'รอส่ง...', 'ph-bold ph-timer');
+            if(shopId === 1) {
+                clearTimeout(syncTimer1);
+                syncTimer1 = setTimeout(() => executeAutoSync(1), SYNC_DELAY);
+            } else {
+                clearTimeout(syncTimer2);
+                syncTimer2 = setTimeout(() => executeAutoSync(2), SYNC_DELAY);
+            }
+        }
+
+        async function executeAutoSync(shopId) {
+            const currentCount = shopId === 1 ? count1 : count2;
+            if (currentCount === 0 || !currentUser) return;
+            
+            setBadge(shopId, 'syncing', 'กำลังส่ง...', 'spinner spinner-dark');
+            
+            const payload = {
+                action: "saveRecord",
+                shop: shopId === 1 ? "EV" : "NOODLE",
+                timeSlot: document.getElementById('timeSlotBadge').textContent,
+                count: currentCount,
+                recordedBy: currentUser.name 
+            };
+
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    if(shopId === 1) { count1 -= currentCount; document.getElementById('countDisplay1').textContent = count1; }
+                    else { count2 -= currentCount; document.getElementById('countDisplay2').textContent = count2; }
+                    
+                    setBadge(shopId, 'success', 'สำเร็จ', 'ph-bold ph-check');
+                    if (navigator.vibrate) navigator.vibrate(100);
+                    
+                    setTimeout(() => { 
+                        if(shopId === 1 && count1 === 0) hideBadge(1);
+                        else if(shopId === 2 && count2 === 0) hideBadge(2);
+                    }, 2000);
+                } else {
+                    setBadge(shopId, 'error', 'ล้มเหลว', 'ph-bold ph-x');
+                }
+            } catch (error) {
+                setBadge(shopId, 'error', 'เน็ตหลุด', 'ph-bold ph-wifi-slash');
+            }
+        }
+
+        // --- ระบบ Dashboard Modal ---
+        function openDashboard() {
+            document.getElementById('dashModal').classList.remove('hidden');
+            
+            const now = new Date();
+            const days = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+            const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+            const thaiYear = now.getFullYear() + 543;
+            const beautifulDate = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${thaiYear}`;
+            document.getElementById('dateTextDash').textContent = beautifulDate;
+
+            fetchDashboardData();
+        }
+
+        function closeDashboard() {
+            document.getElementById('dashModal').classList.add('hidden');
+        }
+
+        async function fetchDashboardData() {
+            const btn = document.getElementById('btnRefreshDash');
+            const icon = document.getElementById('dashIcon');
+            const text = document.getElementById('dashBtnText');
+            
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            icon.className = 'spinner spinner-dark text-lg';
+            text.textContent = 'กำลังดึงข้อมูล...';
+
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'getCentralDashboard' })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    document.getElementById('dashSyncTime').textContent = result.data.time;
+                    
+                    document.getElementById('totalTDR').textContent = result.data.ev.total;
+                    // โยน evSlots ไปให้วาดตาราง EV
+                    renderTable('tbodyTDR', result.data.ev.hourly, evSlots);
+                    
+                    document.getElementById('totalNoodle').textContent = result.data.noodle.total;
+                    // โยน noodleSlots ไปให้วาดตาราง Noodle
+                    renderTable('tbodyNoodle', result.data.noodle.hourly, noodleSlots);
+                } else {
+                    alert("ดึงข้อมูลไม่สำเร็จ: " + result.message);
+                }
+            } catch (error) {
+                alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต");
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                icon.className = 'ph-bold ph-arrows-clockwise text-lg';
+                text.textContent = 'โหลดข้อมูลล่าสุด';
+            }
+        }
+
+        // ปรับพารามิเตอร์ให้รับ targetSlots เข้ามา เพื่อใช้วาดตารางของร้านนั้นๆ
+        function renderTable(tbodyId, hourlyMap, targetSlots) {
+            const tbody = document.getElementById(tbodyId);
+            tbody.innerHTML = '';
+            
+            const currentActiveSlot = document.getElementById('timeSlotBadge').textContent;
+
+            targetSlots.forEach(item => {
+                const count = hourlyMap[item.s] || 0;
+                const tr = document.createElement('tr');
+                
+                if(item.s === currentActiveSlot) {
+                    tr.style.backgroundColor = tbodyId === 'tbodyTDR' ? 'rgba(255,255,255,0.05)' : 'rgba(234, 88, 12, 0.05)';
+                    tr.style.fontWeight = 'bold';
+                }
+
+                const badgeClass = item.sh === 'Day' ? 'shift-badge shift-day' : 'shift-badge shift-night';
+                const badgeIcon = item.sh === 'Day' ? '<i class="ph-fill ph-sun"></i>' : '<i class="ph-fill ph-moon"></i>';
+                
+                tr.innerHTML = `
+                    <td>${item.s}</td>
+                    <td><span class="${badgeClass}">${badgeIcon} ${item.sh}</span></td>
+                    <td class="text-right ${count > 0 ? (tbodyId === 'tbodyTDR' ? 'text-white' : 'text-orange-600') : 'text-gray-500'}">${count}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
