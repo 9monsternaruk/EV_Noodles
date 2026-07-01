@@ -83,6 +83,18 @@
         .shift-night { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
         .dash-card-light .shift-day { background: #fef3c7; color: #d97706; }
         .dash-card-light .shift-night { background: #e0e7ff; color: #4f46e5; }
+
+        /* iOS Alert Styles */
+        .ios-alert-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; }
+        .ios-alert-overlay.active { opacity: 1; pointer-events: auto; }
+        .ios-alert-box { background: rgba(255, 255, 255, 0.95); width: 270px; border-radius: 14px; text-align: center; display: flex; flex-direction: column; transform: scale(1.1); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .ios-alert-overlay.active .ios-alert-box { transform: scale(1); }
+        .ios-alert-content { padding: 20px 16px; }
+        .ios-alert-title { font-weight: 600; font-size: 17px; margin-bottom: 6px; color: #000; }
+        .ios-alert-msg { font-size: 13px; color: #333; line-height: 1.4; }
+        .ios-alert-buttons { display: flex; border-top: 1px solid rgba(60, 60, 67, 0.29); }
+        .ios-alert-btn { flex: 1; padding: 12px 0; background: none; border: none; font-size: 17px; color: #007aff; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .ios-alert-btn:active { background: rgba(0,0,0,0.05); border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }
     </style>
 </head>
 <body>
@@ -112,6 +124,7 @@
                 <div class="text-xs text-gray-500 mt-0.5">Slot: <span id="timeSlotBadge" class="font-mono font-bold text-gray-700">--:----:--</span></div>
             </div>
             <div class="flex items-center gap-3">
+                <div id="gpsStatus" class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm"><i class="ph-fill ph-navigation-arrow"></i> ค้นหาพิกัด...</div>
                 <button onclick="openDashboard()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 hover:bg-indigo-100 transition-colors shadow-sm">
                     <i class="ph-bold ph-chart-bar text-sm"></i> สรุปยอด
                 </button>
@@ -142,21 +155,6 @@
                 <div class="count-display" id="countDisplay2">0</div>
             </div>
             <div class="tap-hint"><i class="ph-bold ph-hand-tap"></i> TAP TO ADD</div>
-        </div>
-
-        <div class="flex justify-between items-center bg-white border-t border-gray-200 h-14 w-full z-40 flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)]">
-            <button class="flex-1 flex flex-col items-center justify-center font-bold text-[10px] text-orange-500 h-full">
-                <i class="ph-fill ph-storefront text-lg mb-0.5"></i>
-                <span>EVNOOD</span>
-            </button>
-            <button onclick="location.reload()" class="flex-1 flex flex-col items-center justify-center font-bold text-[10px] text-gray-400 h-full hover:text-gray-600 active:scale-95 transition-transform">
-                <i class="ph-bold ph-house text-lg mb-0.5"></i>
-                <span>HOME</span>
-            </button>
-            <button onclick="window.location.href='https://9monsternaruk.github.io/YamadaCounter/'" class="flex-1 flex flex-col items-center justify-center font-bold text-[10px] text-gray-400 h-full hover:text-gray-600 active:scale-95 transition-transform">
-                <i class="ph-bold ph-list-numbers text-lg mb-0.5"></i>
-                <span>YAMADA</span>
-            </button>
         </div>
     </div>
 
@@ -216,6 +214,18 @@
         </div>
     </div>
 
+    <div id="iosAlertOverlay" class="ios-alert-overlay">
+        <div class="ios-alert-box">
+            <div class="ios-alert-content">
+                <div class="ios-alert-title" id="iosAlertTitle">แจ้งเตือน</div>
+                <div class="ios-alert-msg" id="iosAlertMessage">ข้อความแจ้งเตือน</div>
+            </div>
+            <div class="ios-alert-buttons">
+                <button class="ios-alert-btn" onclick="closeIOSAlert()">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyE6je7igmqVohJLosZIDykPcPfBT7jvTHqExfXahzO9eCGxH6KhKJ79aR5odaE579mnA/exec"; 
 
@@ -224,7 +234,15 @@
         let count1 = 0; let syncTimer1 = null;
         let count2 = 0; let syncTimer2 = null;
 
-        // แยก Slots TDR (EV) แบบเต็ม 24 ชั่วโมง เริ่ม 07:00
+        // --- ตั้งค่าระบบพิกัด (Geofencing) ศูนย์วัฒนธรรมเชียงใหม่ ---
+        const CENTER_LAT = 18.7721947;
+        const CENTER_LON = 98.9801076;
+        const MAX_RADIUS_METERS = 300; 
+        
+        let isInArea = false;
+        let gpsWatcherId = null;
+        let currentSlot = "";
+
         const evSlots = [ 
             { s: "07:00-08:00", sh: "Day" }, { s: "08:00-09:00", sh: "Day" }, { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, 
             { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" }, { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, 
@@ -234,7 +252,6 @@
             { s: "03:00-04:00", sh: "Night" }, { s: "04:00-05:00", sh: "Night" }, { s: "05:00-06:00", sh: "Night" }, { s: "06:00-07:00", sh: "Night" } 
         ];
 
-        // แยก Slots Noodle เริ่ม 09:00 และเว้นช่วงที่ไม่เปิด
         const noodleSlots = [
             { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" },
             { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, { s: "15:00-16:00", sh: "Day" },
@@ -248,12 +265,66 @@
             setInterval(updateClock, 1000);
         };
 
+        // --- ระบบ iOS Alert ---
+        function openIOSAlert(title, message) {
+            document.getElementById('iosAlertTitle').textContent = title;
+            document.getElementById('iosAlertMessage').innerHTML = message;
+            document.getElementById('iosAlertOverlay').classList.add('active');
+            if(navigator.vibrate) navigator.vibrate([200, 100, 200]); // สั่นเตือน
+        }
+
+        function closeIOSAlert() {
+            document.getElementById('iosAlertOverlay').classList.remove('active');
+        }
+
+        // --- คำนวณระยะทาง GPS (Haversine formula) ---
+        function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c * 1000;
+        }
+
+        function startLocationTracking() {
+            if ("geolocation" in navigator) {
+                gpsWatcherId = navigator.geolocation.watchPosition((position) => {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+                    const distance = getDistanceFromLatLonInMeters(userLat, userLon, CENTER_LAT, CENTER_LON);
+                    
+                    const statusBadge = document.getElementById('gpsStatus');
+                    
+                    if (distance <= MAX_RADIUS_METERS) {
+                        isInArea = true;
+                        statusBadge.className = 'text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
+                        statusBadge.innerHTML = '<i class="ph-fill ph-map-pin"></i> ในพื้นที่';
+                    } else {
+                        isInArea = false;
+                        statusBadge.className = 'text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
+                        statusBadge.innerHTML = '<i class="ph-fill ph-map-pin-line"></i> นอกพื้นที่';
+                    }
+                }, (error) => {
+                    isInArea = false; // ถ้าไม่อนุญาต GPS ถือว่านอกพื้นที่
+                    const statusBadge = document.getElementById('gpsStatus');
+                    statusBadge.className = 'text-[10px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
+                    statusBadge.innerHTML = '<i class="ph-fill ph-warning-circle"></i> ปิด GPS';
+                    openIOSAlert("ข้อผิดพลาด", "คุณต้องอนุญาตให้เข้าถึงตำแหน่ง (GPS) <br>เพื่อใช้งานระบบ");
+                }, { enableHighAccuracy: true, maximumAge: 0 });
+            } else {
+                openIOSAlert("ไม่รองรับ", "อุปกรณ์ของคุณไม่รองรับ GPS");
+            }
+        }
+
         function updateClock() {
             const now = new Date();
             document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
             const hour = now.getHours(); const nextHour = (hour + 1) % 24;
-            let slotStr = (hour === 23) ? "23:00-24:00" : (hour === 0 ? "24:00-01:00" : `${hour.toString().padStart(2, '0')}:00-${nextHour.toString().padStart(2, '0')}:00`);
-            document.getElementById('timeSlotBadge').textContent = slotStr;
+            currentSlot = (hour === 23) ? "23:00-24:00" : (hour === 0 ? "24:00-01:00" : `${hour.toString().padStart(2, '0')}:00-${nextHour.toString().padStart(2, '0')}:00`);
+            document.getElementById('timeSlotBadge').textContent = currentSlot;
         }
 
         function checkLoginStatus() {
@@ -270,7 +341,7 @@
         async function handleLogin() {
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
-            if (!username || !password) { alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+            if (!username || !password) { openIOSAlert("แจ้งเตือน", "กรุณากรอกข้อมูลให้ครบ"); return; }
 
             const btn = document.getElementById('btnLogin');
             const spinner = document.getElementById('loginSpinner');
@@ -289,26 +360,42 @@
                     currentUser = result.user;
                     showApp();
                 } else {
-                    alert("เข้าสู่ระบบไม่สำเร็จ: " + result.message);
+                    openIOSAlert("เข้าสู่ระบบไม่สำเร็จ", result.message);
                 }
-            } catch (e) { alert("Error: ตรวจสอบอินเทอร์เน็ตหรือ URL ของระบบ"); } 
+            } catch (e) { openIOSAlert("Error", "ตรวจสอบอินเทอร์เน็ตหรือ URL ของระบบ"); } 
             finally { btn.disabled = false; spinner.classList.add('hidden'); }
         }
 
         function handleLogout() {
-            if(confirm("ยืนยันการออกจากระบบ?")) {
-                localStorage.removeItem('guard_user');
-                location.reload();
-            }
+            localStorage.removeItem('guard_user');
+            if(gpsWatcherId) navigator.geolocation.clearWatch(gpsWatcherId);
+            location.reload();
         }
 
         function showApp() {
             document.getElementById('authContainer').classList.add('hidden');
             document.getElementById('appContainer').classList.remove('hidden');
             document.getElementById('currentUserDisplay').textContent = currentUser.name;
+            startLocationTracking();
         }
 
         function addCount(shopId) {
+            // ตรวจสอบพิกัดก่อนทำงาน
+            if (!isInArea) {
+                openIOSAlert("ปฏิเสธการเข้าถึง", "คุณอยู่นอกพื้นที่ปฏิบัติงาน<br>ไม่สามารถบันทึกข้อมูลได้");
+                return;
+            }
+
+            // ตรวจสอบช่วงเวลา (Time Blocking)
+            if (shopId === 2) { 
+                // เช็คว่า Slot ปัจจุบันมีในตารางร้านก๋วยเตี๋ยวหรือไม่
+                const isNoodleOpen = noodleSlots.some(slot => slot.s === currentSlot);
+                if (!isNoodleOpen) {
+                    openIOSAlert("นอกเวลางาน", "ร้านก๋วยเตี๋ยวเป๋นแก้ว<br>ไม่ได้เปิดทำการในช่วงเวลานี้");
+                    return;
+                }
+            }
+
             if (shopId === 1) { count1++; document.getElementById('countDisplay1').textContent = count1; scheduleAutoSync(1); }
             else { count2++; document.getElementById('countDisplay2').textContent = count2; scheduleAutoSync(2); }
             if (navigator.vibrate) navigator.vibrate(40);
@@ -416,19 +503,15 @@
                 
                 if (result.status === 'success') {
                     document.getElementById('dashSyncTime').textContent = result.data.time;
-                    
                     document.getElementById('totalTDR').textContent = result.data.ev.total;
-                    // โยน evSlots ไปให้วาดตาราง EV
                     renderTable('tbodyTDR', result.data.ev.hourly, evSlots);
-                    
                     document.getElementById('totalNoodle').textContent = result.data.noodle.total;
-                    // โยน noodleSlots ไปให้วาดตาราง Noodle
                     renderTable('tbodyNoodle', result.data.noodle.hourly, noodleSlots);
                 } else {
-                    alert("ดึงข้อมูลไม่สำเร็จ: " + result.message);
+                    openIOSAlert("ข้อผิดพลาด", "ดึงข้อมูลไม่สำเร็จ: " + result.message);
                 }
             } catch (error) {
-                alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต");
+                openIOSAlert("ข้อผิดพลาด", "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต");
             } finally {
                 btn.disabled = false;
                 btn.style.opacity = '1';
@@ -437,7 +520,6 @@
             }
         }
 
-        // ปรับพารามิเตอร์ให้รับ targetSlots เข้ามา เพื่อใช้วาดตารางของร้านนั้นๆ
         function renderTable(tbodyId, hourlyMap, targetSlots) {
             const tbody = document.getElementById(tbodyId);
             tbody.innerHTML = '';
