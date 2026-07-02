@@ -258,7 +258,6 @@
         let gpsWatcherId = null;
         let currentSlot = "";
 
-        // แยก Slots TDR (EV) แบบเต็ม 24 ชั่วโมง เริ่ม 07:00
         const evSlots = [ 
             { s: "07:00-08:00", sh: "Day" }, { s: "08:00-09:00", sh: "Day" }, { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, 
             { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" }, { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, 
@@ -268,7 +267,6 @@
             { s: "03:00-04:00", sh: "Night" }, { s: "04:00-05:00", sh: "Night" }, { s: "05:00-06:00", sh: "Night" }, { s: "06:00-07:00", sh: "Night" } 
         ];
 
-        // แยก Slots Noodle เริ่ม 09:00 และเว้นช่วงที่ไม่เปิด
         const noodleSlots = [
             { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" },
             { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, { s: "15:00-16:00", sh: "Day" },
@@ -294,7 +292,6 @@
             document.getElementById('iosAlertOverlay').classList.remove('active');
         }
 
-        // --- คำนวณระยะทาง GPS (Haversine formula) ---
         function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
             const R = 6371; 
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -327,10 +324,18 @@
                 }, (error) => {
                     isInArea = false;
                     const statusBadge = document.getElementById('gpsStatus');
-                    statusBadge.className = 'text-[10px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
-                    statusBadge.innerHTML = '<i class="ph-fill ph-warning-circle"></i> ปิด GPS';
-                    openIOSAlert("ข้อผิดพลาด", "คุณต้องอนุญาตให้เข้าถึงตำแหน่ง (GPS) <br>เพื่อใช้งานระบบ");
-                }, { enableHighAccuracy: true, maximumAge: 0 });
+                    
+                    // แยกรหัส Error: 1 = ผู้ใช้กดบล็อก Permission, นอกนั้น 2 หรือ 3 = สัญญาณหาย/จอดับ/Timeout
+                    if (error.code === 1) {
+                        statusBadge.className = 'text-[10px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
+                        statusBadge.innerHTML = '<i class="ph-fill ph-warning-circle"></i> ปิด GPS';
+                        openIOSAlert("ข้อผิดพลาด", "คุณต้องอนุญาตให้เข้าถึงตำแหน่ง (GPS) <br>เพื่อใช้งานระบบ");
+                    } else {
+                        // ปรับให้แค่เตือนด้านบนจอ ไม่ต้องเด้งป๊อปอัปให้รำคาญ
+                        statusBadge.className = 'text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
+                        statusBadge.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> หาสัญญาณ...';
+                    }
+                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
             } else {
                 openIOSAlert("ไม่รองรับ", "อุปกรณ์ของคุณไม่รองรับ GPS");
             }
@@ -399,12 +404,37 @@
         }
 
         function addCount(shopId) {
-            // ตรวจสอบพิกัดก่อนทำงาน
+            // ถ้าระบบคิดว่าไม่อยู่ในพื้นที่ (อาจจะเพราะจอเพิ่งเปิดแล้ว GPS ยังไม่มา)
+            // ให้บังคับดึงพิกัดแบบทันที 1 ครั้งก่อนที่จะเด้งแจ้งเตือนด่า
             if (!isInArea) {
-                openIOSAlert("ปฏิเสธการเข้าถึง", "คุณอยู่นอกพื้นที่ปฏิบัติงาน<br>ไม่สามารถบันทึกข้อมูลได้");
+                const statusBadge = document.getElementById('gpsStatus');
+                statusBadge.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> รีเฟรชพิกัด...';
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const dist = getDistanceFromLatLonInMeters(position.coords.latitude, position.coords.longitude, CENTER_LAT, CENTER_LON);
+                        if(dist <= MAX_RADIUS_METERS) {
+                            isInArea = true;
+                            statusBadge.className = 'text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
+                            statusBadge.innerHTML = '<i class="ph-fill ph-map-pin"></i> ในพื้นที่';
+                            processCountEvent(shopId); // ทำงานต่อ
+                        } else {
+                            openIOSAlert("ปฏิเสธการเข้าถึง", "คุณอยู่นอกพื้นที่ปฏิบัติงาน<br>ไม่สามารถบันทึกข้อมูลได้");
+                        }
+                    },
+                    (err) => {
+                        if (err.code === 1) openIOSAlert("ข้อผิดพลาด", "คุณต้องอนุญาตการเข้าถึง GPS");
+                        else openIOSAlert("สัญญาณ GPS อ่อน", "กรุณารอรับสัญญาณสักครู่ หรือขยับไปที่โล่ง");
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+                );
                 return;
             }
 
+            processCountEvent(shopId);
+        }
+
+        function processCountEvent(shopId) {
             // ตรวจสอบช่วงเวลา (Time Blocking)
             if (shopId === 2) { 
                 const isNoodleOpen = noodleSlots.some(slot => slot.s === currentSlot);
