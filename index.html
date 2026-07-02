@@ -156,6 +156,21 @@
             </div>
             <div class="tap-hint"><i class="ph-bold ph-hand-tap"></i> TAP TO ADD</div>
         </div>
+
+        <div class="flex justify-between items-center bg-white border-t border-gray-200 h-14 w-full z-40 flex-shrink-0 shadow-[0_-2px_5px_rgba(0,0,0,0.05)]">
+            <button class="flex-1 flex flex-col items-center justify-center font-bold text-[10px] text-orange-500 h-full">
+                <i class="ph-fill ph-storefront text-lg mb-0.5"></i>
+                <span>EVNOOD</span>
+            </button>
+            <button onclick="location.reload()" class="flex-1 flex flex-col items-center justify-center font-bold text-[10px] text-gray-400 h-full hover:text-gray-600 active:scale-95 transition-transform">
+                <i class="ph-bold ph-house text-lg mb-0.5"></i>
+                <span>HOME</span>
+            </button>
+            <button onclick="window.location.href='https://9monsternaruk.github.io/YamadaCounter/'" class="flex-1 flex flex-col items-center justify-center font-bold text-[10px] text-gray-400 h-full hover:text-gray-600 active:scale-95 transition-transform">
+                <i class="ph-bold ph-list-numbers text-lg mb-0.5"></i>
+                <span>YAMADA</span>
+            </button>
+        </div>
     </div>
 
     <div id="dashModal" class="modal-overlay hidden">
@@ -243,6 +258,7 @@
         let gpsWatcherId = null;
         let currentSlot = "";
 
+        // แยก Slots TDR (EV) แบบเต็ม 24 ชั่วโมง เริ่ม 07:00
         const evSlots = [ 
             { s: "07:00-08:00", sh: "Day" }, { s: "08:00-09:00", sh: "Day" }, { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, 
             { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" }, { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, 
@@ -252,6 +268,7 @@
             { s: "03:00-04:00", sh: "Night" }, { s: "04:00-05:00", sh: "Night" }, { s: "05:00-06:00", sh: "Night" }, { s: "06:00-07:00", sh: "Night" } 
         ];
 
+        // แยก Slots Noodle เริ่ม 09:00 และเว้นช่วงที่ไม่เปิด
         const noodleSlots = [
             { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" },
             { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, { s: "15:00-16:00", sh: "Day" },
@@ -270,7 +287,7 @@
             document.getElementById('iosAlertTitle').textContent = title;
             document.getElementById('iosAlertMessage').innerHTML = message;
             document.getElementById('iosAlertOverlay').classList.add('active');
-            if(navigator.vibrate) navigator.vibrate([200, 100, 200]); // สั่นเตือน
+            if(navigator.vibrate) navigator.vibrate([200, 100, 200]); 
         }
 
         function closeIOSAlert() {
@@ -308,7 +325,7 @@
                         statusBadge.innerHTML = '<i class="ph-fill ph-map-pin-line"></i> นอกพื้นที่';
                     }
                 }, (error) => {
-                    isInArea = false; // ถ้าไม่อนุญาต GPS ถือว่านอกพื้นที่
+                    isInArea = false;
                     const statusBadge = document.getElementById('gpsStatus');
                     statusBadge.className = 'text-[10px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm';
                     statusBadge.innerHTML = '<i class="ph-fill ph-warning-circle"></i> ปิด GPS';
@@ -367,9 +384,11 @@
         }
 
         function handleLogout() {
-            localStorage.removeItem('guard_user');
-            if(gpsWatcherId) navigator.geolocation.clearWatch(gpsWatcherId);
-            location.reload();
+            if(confirm("ยืนยันการออกจากระบบ?")) {
+                localStorage.removeItem('guard_user');
+                if(gpsWatcherId) navigator.geolocation.clearWatch(gpsWatcherId);
+                location.reload();
+            }
         }
 
         function showApp() {
@@ -388,7 +407,6 @@
 
             // ตรวจสอบช่วงเวลา (Time Blocking)
             if (shopId === 2) { 
-                // เช็คว่า Slot ปัจจุบันมีในตารางร้านก๋วยเตี๋ยวหรือไม่
                 const isNoodleOpen = noodleSlots.some(slot => slot.s === currentSlot);
                 if (!isNoodleOpen) {
                     openIOSAlert("นอกเวลางาน", "ร้านก๋วยเตี๋ยวเป๋นแก้ว<br>ไม่ได้เปิดทำการในช่วงเวลานี้");
@@ -503,8 +521,10 @@
                 
                 if (result.status === 'success') {
                     document.getElementById('dashSyncTime').textContent = result.data.time;
+                    
                     document.getElementById('totalTDR').textContent = result.data.ev.total;
                     renderTable('tbodyTDR', result.data.ev.hourly, evSlots);
+                    
                     document.getElementById('totalNoodle').textContent = result.data.noodle.total;
                     renderTable('tbodyNoodle', result.data.noodle.hourly, noodleSlots);
                 } else {
