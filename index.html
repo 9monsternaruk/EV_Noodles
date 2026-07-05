@@ -278,7 +278,6 @@
         let currentSlot = "";
         let manualSlotOverride = null;
 
-        // แยก Slots TDR (EV) แบบเต็ม 24 ชั่วโมง เริ่ม 07:00
         const evSlots = [ 
             { s: "07:00-08:00", sh: "Day" }, { s: "08:00-09:00", sh: "Day" }, { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, 
             { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" }, { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, 
@@ -288,7 +287,6 @@
             { s: "03:00-04:00", sh: "Night" }, { s: "04:00-05:00", sh: "Night" }, { s: "05:00-06:00", sh: "Night" }, { s: "06:00-07:00", sh: "Night" } 
         ];
 
-        // แยก Slots Noodle เริ่ม 09:00 และเว้นช่วงที่ไม่เปิด
         const noodleSlots = [
             { s: "09:00-10:00", sh: "Day" }, { s: "10:00-11:00", sh: "Day" }, { s: "11:00-12:00", sh: "Day" }, { s: "12:00-13:00", sh: "Day" },
             { s: "13:00-14:00", sh: "Day" }, { s: "14:00-15:00", sh: "Day" }, { s: "15:00-16:00", sh: "Day" },
@@ -302,7 +300,6 @@
             setInterval(updateClock, 1000);
         };
 
-        // --- ระบบสร้าง Dropdown เลือกเวลาย้อนหลัง (เฉพาะแอดมิน) ---
         function populateAdminSlots() {
             const select = document.getElementById('adminSlotSelect');
             evSlots.forEach(slot => {
@@ -331,7 +328,6 @@
             }
         }
 
-        // --- ระบบ iOS Alert ---
         function openIOSAlert(title, message) {
             document.getElementById('iosAlertTitle').textContent = title;
             document.getElementById('iosAlertMessage').innerHTML = message;
@@ -343,7 +339,6 @@
             document.getElementById('iosAlertOverlay').classList.remove('active');
         }
 
-        // --- คำนวณระยะทาง GPS (Haversine formula) ---
         function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
             const R = 6371; 
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -355,6 +350,7 @@
             return R * c * 1000;
         }
 
+        // --- แก้ไขฟังก์ชันนี้: เพิ่ม Timeout และตรวจสอบ Error อย่างละเอียด ---
         function startLocationTracking() {
             if ("geolocation" in navigator) {
                 gpsWatcherId = navigator.geolocation.watchPosition((position) => {
@@ -377,13 +373,29 @@
                     isInArea = false;
                     const statusBadge = document.getElementById('gpsStatus');
                     statusBadge.className = 'text-[9px] bg-gray-100 text-gray-700 px-2 py-1 rounded-full flex items-center gap-1 shadow-sm font-medium';
-                    statusBadge.innerHTML = '<i class="ph-fill ph-warning-circle"></i> ปิด GPS';
-                    openIOSAlert("ข้อผิดพลาด", "คุณต้องอนุญาตให้เข้าถึงตำแหน่ง (GPS) <br>เพื่อใช้งานระบบ");
-                }, { enableHighAccuracy: true, maximumAge: 0 });
+                    
+                    let errorMsg = "ไม่ทราบสาเหตุ";
+                    let detailMsg = "กรุณาตรวจสอบการตั้งค่า";
+                    
+                    if (error.code === error.PERMISSION_DENIED) {
+                        errorMsg = "ถูกบล็อก GPS";
+                        detailMsg = "เบราว์เซอร์ไม่ได้รับอนุญาตให้ดึงตำแหน่ง (ต้องเปิดสิทธิ์ในตั้งค่าแอป Chrome)";
+                    } else if (error.code === error.POSITION_UNAVAILABLE) {
+                        errorMsg = "หาสัญญาณไม่ได้";
+                        detailMsg = "เครื่องหาพิกัดไม่พบ ลองเดินออกไปที่โล่ง";
+                    } else if (error.code === error.TIMEOUT) {
+                        errorMsg = "หมดเวลาเชื่อมต่อ";
+                        detailMsg = "รอพิกัดนานเกิน 15 วินาที (สัญญาณอาจอ่อน)";
+                    }
+
+                    statusBadge.innerHTML = `<i class="ph-fill ph-warning-circle"></i> ${errorMsg}`;
+                    openIOSAlert("ข้อผิดพลาดพิกัด", detailMsg);
+                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }); // เพิ่ม timeout: 15000 (15 วินาที)
             } else {
                 openIOSAlert("ไม่รองรับ", "อุปกรณ์ของคุณไม่รองรับ GPS");
             }
         }
+        // -------------------------------------------------------------------
 
         function updateClock() {
             const now = new Date();
@@ -448,7 +460,6 @@
             document.getElementById('appContainer').classList.remove('hidden');
             document.getElementById('currentUserDisplay').textContent = currentUser.name;
             
-            // เปิดให้ Admin ใช้ฟังก์ชันเลือกลงเวลาย้อนหลัง
             if (currentUser.role === 'admin') {
                 populateAdminSlots();
                 document.getElementById('adminSlotSelect').classList.remove('hidden');
@@ -460,13 +471,11 @@
         }
 
         function addCount(shopId) {
-            // ตรวจสอบพิกัดก่อนทำงาน
             if (!isInArea) {
                 openIOSAlert("ปฏิเสธการเข้าถึง", "คุณอยู่นอกพื้นที่ปฏิบัติงาน<br>ไม่สามารถบันทึกข้อมูลได้");
                 return;
             }
 
-            // ตรวจสอบช่วงเวลา (Time Blocking)
             if (shopId === 2) { 
                 const isNoodleOpen = noodleSlots.some(slot => slot.s === currentSlot);
                 if (!isNoodleOpen) {
@@ -512,7 +521,7 @@
             const payload = {
                 action: "saveRecord",
                 shop: shopId === 1 ? "EV" : "NOODLE",
-                timeSlot: currentSlot, // เปลี่ยนมาดึงค่าจากตัวแปร currentSlot โดยตรง
+                timeSlot: currentSlot, 
                 count: currentCount,
                 recordedBy: currentUser.name 
             };
@@ -544,7 +553,6 @@
             }
         }
 
-        // --- ระบบ Dashboard Modal ---
         function openDashboard() {
             document.getElementById('dashModal').classList.remove('hidden');
             
@@ -605,7 +613,6 @@
             const tbody = document.getElementById(tbodyId);
             tbody.innerHTML = '';
             
-            // ปรับให้อิงจาก currentSlot เผื่อตอนเลือกลงเวลาย้อนหลังในหน้าสรุปยอดจะได้เห็นไฮไลต์ถูกช่อง
             const currentActiveSlot = currentSlot;
 
             targetSlots.forEach(item => {
